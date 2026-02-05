@@ -67,8 +67,8 @@ export default async function handler(req: Request, _context: Context) {
     });
   }
 
-  // Extract slash command data
-  const { text, user_id, channel_id } = payload;
+  // Extract slash command data (thread_ts is present when used in a thread)
+  const { text, user_id, channel_id, thread_ts } = payload;
 
   if (!text || !text.trim()) {
     return new Response(
@@ -99,6 +99,7 @@ export default async function handler(req: Request, _context: Context) {
       text: trumpified,
       username: userName,
       icon_url: userIcon,
+      thread_ts: thread_ts, // Reply in thread if command was used in a thread
       unfurl_links: false,
     });
     
