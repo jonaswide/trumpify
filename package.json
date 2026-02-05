@@ -1,0 +1,21 @@
+{
+  "name": "trumpify-slack-app",
+  "version": "1.0.0",
+  "description": "Slack app that rewrites messages in Trump's speaking style",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "dev": "netlify dev",
+    "deploy": "netlify deploy --prod"
+  },
+  "dependencies": {
+    "@mistralai/mistralai": "^1.0.4",
+    "@slack/web-api": "^7.0.2"
+  },
+  "devDependencies": {
+    "@netlify/functions": "^2.6.0",
+    "@types/node": "^20.11.0",
+    "netlify-cli": "^17.15.0",
+    "typescript": "^5.3.3"
+  }
+}
