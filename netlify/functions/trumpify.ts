@@ -113,33 +113,30 @@ export default async function handler(req: Request, _context: Context) {
     );
   }
 
-  // Immediately acknowledge the request (Slack requires response within 3 seconds)
-  // Then process asynchronously
-  const processAsync = async () => {
-    try {
-      const trumpified = await trumpifyText(text);
-      await postToSlack(channel_id, user_id, text, trumpified, thread_ts);
-    } catch (error) {
-      console.error("Error processing trumpify request:", error);
-      // Try to notify the user of the error
-      try {
-        const slack = new WebClient(process.env.SLACK_BOT_TOKEN);
-        await slack.chat.postEphemeral({
-          channel: channel_id,
-          user: user_id,
-          text: "Sorry, something went wrong while trumpifying your message. Please try again!",
-        });
-      } catch (e) {
-        console.error("Failed to send error message:", e);
-      }
-    }
-  };
-
-  // Start processing without awaiting
-  processAsync();
-
-  // Return empty 200 to acknowledge receipt
-  return new Response("", { status: 200 });
+  // Process the request (must complete within Netlify's 10s timeout)
+  try {
+    console.log("Starting trumpify for user:", user_id, "in channel:", channel_id);
+    
+    const trumpified = await trumpifyText(text);
+    console.log("Trumpified text:", trumpified);
+    
+    await postToSlack(channel_id, user_id, text, trumpified, thread_ts);
+    console.log("Posted to Slack successfully");
+    
+    // Return empty 200 to acknowledge (Slack doesn't show this to user)
+    return new Response("", { status: 200 });
+  } catch (error) {
+    console.error("Error processing trumpify request:", error);
+    
+    // Return error as ephemeral message to user
+    return new Response(
+      JSON.stringify({
+        response_type: "ephemeral",
+        text: `Sorry, something went wrong: ${error instanceof Error ? error.message : "Unknown error"}`,
+      }),
+      { headers: { "Content-Type": "application/json" } }
+    );
+  }
 }
 
 export const config = {
