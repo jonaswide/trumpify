@@ -1,5 +1,6 @@
 import type { Context } from "@netlify/functions";
 import { Mistral } from "@mistralai/mistralai";
+import { WebClient } from "@slack/web-api";
 
 const TRUMP_SYSTEM_PROMPT = `You are a translator that rewrites messages in Donald Trump's distinctive speaking style. 
 
@@ -67,7 +68,7 @@ export default async function handler(req: Request, _context: Context) {
   }
 
   // Extract slash command data
-  const { text } = payload;
+  const { text, user_id, channel_id } = payload;
 
   if (!text || !text.trim()) {
     return new Response(
@@ -79,21 +80,32 @@ export default async function handler(req: Request, _context: Context) {
     );
   }
 
-  // Process the request and respond directly (must be within 3 seconds)
   try {
-    console.log("Starting trumpify");
+    console.log("Starting trumpify for user:", user_id);
     
     const trumpified = await trumpifyText(text);
     console.log("Trumpified text:", trumpified);
     
-    // Return directly as slash command response - shows as from the user
-    return new Response(
-      JSON.stringify({
-        response_type: "in_channel",
-        text: trumpified,
-      }),
-      { headers: { "Content-Type": "application/json" } }
-    );
+    // Post via Slack API as the user
+    const slack = new WebClient(process.env.SLACK_BOT_TOKEN);
+    
+    // Get user info for name and avatar
+    const userInfo = await slack.users.info({ user: user_id });
+    const userName = userInfo.user?.real_name || userInfo.user?.name || "Someone";
+    const userIcon = userInfo.user?.profile?.image_72;
+    
+    await slack.chat.postMessage({
+      channel: channel_id,
+      text: trumpified,
+      username: userName,
+      icon_url: userIcon,
+      unfurl_links: false,
+    });
+    
+    console.log("Posted successfully");
+    
+    // Return empty response - no echo of the original command
+    return new Response("", { status: 200 });
   } catch (error) {
     console.error("Error processing trumpify request:", error);
     
