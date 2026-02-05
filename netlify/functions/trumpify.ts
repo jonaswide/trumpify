@@ -67,7 +67,7 @@ export default async function handler(req: Request, _context: Context) {
   }
 
   // Extract slash command data
-  const { text, response_url } = payload;
+  const { text } = payload;
 
   if (!text || !text.trim()) {
     return new Response(
@@ -79,25 +79,21 @@ export default async function handler(req: Request, _context: Context) {
     );
   }
 
-  // Process the request
+  // Process the request and respond directly (must be within 3 seconds)
   try {
-    console.log("Starting trumpify, response_url:", response_url);
+    console.log("Starting trumpify");
     
     const trumpified = await trumpifyText(text);
     console.log("Trumpified text:", trumpified);
     
-    // Post to response_url - this shows as coming from the user
-    await fetch(response_url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
+    // Return directly as slash command response - shows as from the user
+    return new Response(
+      JSON.stringify({
         response_type: "in_channel",
         text: trumpified,
       }),
-    });
-    
-    console.log("Posted successfully");
-    return new Response("", { status: 200 });
+      { headers: { "Content-Type": "application/json" } }
+    );
   } catch (error) {
     console.error("Error processing trumpify request:", error);
     
