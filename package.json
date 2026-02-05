@@ -9,8 +9,7 @@
     "deploy": "netlify deploy --prod"
   },
   "dependencies": {
-    "@mistralai/mistralai": "^1.0.4",
-    "@slack/web-api": "^7.0.2"
+    "@mistralai/mistralai": "^1.0.4"
   },
   "devDependencies": {
     "@netlify/functions": "^2.6.0",

@@ -1,6 +1,5 @@
 import type { Context } from "@netlify/functions";
 import { Mistral } from "@mistralai/mistralai";
-import { WebClient } from "@slack/web-api";
 
 const TRUMP_SYSTEM_PROMPT = `You are a translator that rewrites messages in Donald Trump's distinctive speaking style. 
 
@@ -34,29 +33,6 @@ async function trumpifyText(text: string): Promise<string> {
   return response.choices?.[0]?.message?.content as string || text;
 }
 
-async function postToSlack(
-  channelId: string,
-  userId: string,
-  trumpifiedText: string,
-  threadTs?: string
-): Promise<void> {
-  const slack = new WebClient(process.env.SLACK_BOT_TOKEN);
-
-  // Get user info for name and avatar
-  const userInfo = await slack.users.info({ user: userId });
-  const userName = userInfo.user?.real_name || userInfo.user?.name || "Someone";
-  const userIcon = userInfo.user?.profile?.image_72;
-
-  // Post the trumpified message as the user
-  await slack.chat.postMessage({
-    channel: channelId,
-    text: trumpifiedText,
-    username: userName,
-    icon_url: userIcon,
-    thread_ts: threadTs,
-    unfurl_links: false,
-  });
-}
 
 function parseFormData(body: string): Record<string, string> {
   const params = new URLSearchParams(body);
@@ -91,8 +67,7 @@ export default async function handler(req: Request, _context: Context) {
   }
 
   // Extract slash command data
-  // thread_ts is present when the command is used in a thread
-  const { text, user_id, channel_id, thread_ts } = payload;
+  const { text, response_url } = payload;
 
   if (!text || !text.trim()) {
     return new Response(
@@ -104,22 +79,28 @@ export default async function handler(req: Request, _context: Context) {
     );
   }
 
-  // Process the request (must complete within Netlify's 10s timeout)
+  // Process the request
   try {
-    console.log("Starting trumpify for user:", user_id, "in channel:", channel_id);
+    console.log("Starting trumpify, response_url:", response_url);
     
     const trumpified = await trumpifyText(text);
     console.log("Trumpified text:", trumpified);
     
-    await postToSlack(channel_id, user_id, trumpified, thread_ts);
-    console.log("Posted to Slack successfully");
+    // Post to response_url - this shows as coming from the user
+    await fetch(response_url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        response_type: "in_channel",
+        text: trumpified,
+      }),
+    });
     
-    // Return empty 200 to acknowledge (Slack doesn't show this to user)
+    console.log("Posted successfully");
     return new Response("", { status: 200 });
   } catch (error) {
     console.error("Error processing trumpify request:", error);
     
-    // Return error as ephemeral message to user
     return new Response(
       JSON.stringify({
         response_type: "ephemeral",
