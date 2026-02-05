@@ -127,7 +127,7 @@ export default async function handler(req: Request, _context: Context) {
         return new Response(
           JSON.stringify({
             response_type: "ephemeral",
-            text: `🎺 Trumpified version:\n\n${trumpified}`,
+            text: `🎺 Trumpified version:\n\n${text}\n\n${trumpified}`,
           }),
           { headers: { "Content-Type": "application/json" } }
         );
