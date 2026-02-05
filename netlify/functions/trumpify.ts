@@ -37,34 +37,25 @@ async function trumpifyText(text: string): Promise<string> {
 async function postToSlack(
   channelId: string,
   userId: string,
-  originalText: string,
   trumpifiedText: string,
   threadTs?: string
 ): Promise<void> {
   const slack = new WebClient(process.env.SLACK_BOT_TOKEN);
 
-  // Get user info to include their name
+  // Get user info for name and avatar
   const userInfo = await slack.users.info({ user: userId });
   const userName = userInfo.user?.real_name || userInfo.user?.name || "Someone";
+  const userIcon = userInfo.user?.profile?.image_72;
 
-  // Post the trumpified message (in thread if threadTs provided)
-  const mainMessage = await slack.chat.postMessage({
+  // Post the trumpified message as the user
+  await slack.chat.postMessage({
     channel: channelId,
-    text: `*${userName} says:*\n${trumpifiedText}`,
-    thread_ts: threadTs, // Reply in thread if used from a thread
+    text: trumpifiedText,
+    username: userName,
+    icon_url: userIcon,
+    thread_ts: threadTs,
     unfurl_links: false,
   });
-
-  // Add original as a threaded reply
-  const replyThreadTs = threadTs || mainMessage.ts;
-  if (replyThreadTs) {
-    await slack.chat.postMessage({
-      channel: channelId,
-      thread_ts: replyThreadTs,
-      text: `_Original message:_\n>${originalText}`,
-      unfurl_links: false,
-    });
-  }
 }
 
 function parseFormData(body: string): Record<string, string> {
@@ -120,7 +111,7 @@ export default async function handler(req: Request, _context: Context) {
     const trumpified = await trumpifyText(text);
     console.log("Trumpified text:", trumpified);
     
-    await postToSlack(channel_id, user_id, text, trumpified, thread_ts);
+    await postToSlack(channel_id, user_id, trumpified, thread_ts);
     console.log("Posted to Slack successfully");
     
     // Return empty 200 to acknowledge (Slack doesn't show this to user)
