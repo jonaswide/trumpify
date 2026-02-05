@@ -38,7 +38,8 @@ async function postToSlack(
   channelId: string,
   userId: string,
   originalText: string,
-  trumpifiedText: string
+  trumpifiedText: string,
+  threadTs?: string
 ): Promise<void> {
   const slack = new WebClient(process.env.SLACK_BOT_TOKEN);
 
@@ -46,18 +47,20 @@ async function postToSlack(
   const userInfo = await slack.users.info({ user: userId });
   const userName = userInfo.user?.real_name || userInfo.user?.name || "Someone";
 
-  // Post the trumpified message
+  // Post the trumpified message (in thread if threadTs provided)
   const mainMessage = await slack.chat.postMessage({
     channel: channelId,
     text: `*${userName} says:*\n${trumpifiedText}`,
+    thread_ts: threadTs, // Reply in thread if used from a thread
     unfurl_links: false,
   });
 
   // Add original as a threaded reply
-  if (mainMessage.ts) {
+  const replyThreadTs = threadTs || mainMessage.ts;
+  if (replyThreadTs) {
     await slack.chat.postMessage({
       channel: channelId,
-      thread_ts: mainMessage.ts,
+      thread_ts: replyThreadTs,
       text: `_Original message:_\n>${originalText}`,
       unfurl_links: false,
     });
@@ -97,7 +100,8 @@ export default async function handler(req: Request, _context: Context) {
   }
 
   // Extract slash command data
-  const { text, user_id, channel_id } = payload;
+  // thread_ts is present when the command is used in a thread
+  const { text, user_id, channel_id, thread_ts } = payload;
 
   if (!text || !text.trim()) {
     return new Response(
@@ -114,7 +118,7 @@ export default async function handler(req: Request, _context: Context) {
   const processAsync = async () => {
     try {
       const trumpified = await trumpifyText(text);
-      await postToSlack(channel_id, user_id, text, trumpified);
+      await postToSlack(channel_id, user_id, text, trumpified, thread_ts);
     } catch (error) {
       console.error("Error processing trumpify request:", error);
       // Try to notify the user of the error
