@@ -105,19 +105,36 @@ export default async function handler(req: Request, _context: Context) {
     const userName = userInfo.user?.real_name || userInfo.user?.name || "Someone";
     const userIcon = userInfo.user?.profile?.image_72;
 
-    await slack.chat.postMessage({
-      channel: channel_id,
-      text: trumpified,
-      username: userName,
-      icon_url: userIcon,
-      thread_ts: thread_ts, // Reply in thread if command was used in a thread
-      unfurl_links: false,
-    });
+    try {
+      await slack.chat.postMessage({
+        channel: channel_id,
+        text: trumpified,
+        username: userName,
+        icon_url: userIcon,
+        thread_ts: thread_ts, // Reply in thread if command was used in a thread
+        unfurl_links: false,
+      });
 
-    console.log("Posted successfully");
+      console.log("Posted successfully");
 
-    // Return empty response - no echo of the original command
-    return new Response("", { status: 200 });
+      // Return empty response - no echo of the original command
+      return new Response("", { status: 200 });
+    } catch (postError: any) {
+      // If we can't post to the channel (e.g., bot not in private channel or DM),
+      // fall back to ephemeral response visible only to the user
+      if (postError?.data?.error === "channel_not_found" || postError?.data?.error === "not_in_channel") {
+        console.log("Cannot post to channel, returning ephemeral response");
+        return new Response(
+          JSON.stringify({
+            response_type: "ephemeral",
+            text: `🎺 Trumpified version:\n\n${trumpified}`,
+          }),
+          { headers: { "Content-Type": "application/json" } }
+        );
+      }
+      // Re-throw other errors
+      throw postError;
+    }
   } catch (error) {
     console.error("Error processing trumpify request:", error);
 
